@@ -41,8 +41,6 @@ class MainActivity : AppCompatActivity(), OnSuccessListener<Any?>, OnFailureList
     }
 
 
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
@@ -58,7 +56,7 @@ class MainActivity : AppCompatActivity(), OnSuccessListener<Any?>, OnFailureList
 
     }
 
-    private fun checkPermission(){
+    private fun checkPermission() {
         if (ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.ACTIVITY_RECOGNITION
@@ -69,12 +67,12 @@ class MainActivity : AppCompatActivity(), OnSuccessListener<Any?>, OnFailureList
                 arrayOf(Manifest.permission.ACTIVITY_RECOGNITION),
                 MY_PERMISSIONS_REQUEST_ACTIVITY_RECOGNITION
             )
-        }else{
+        } else {
             checkGoogleFitPermission()
         }
     }
 
-    private fun checkGoogleFitPermission(){
+    private fun checkGoogleFitPermission() {
         fitnessOptions = FitnessOptions.builder()
             .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
             .addDataType(DataType.AGGREGATE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
@@ -84,12 +82,15 @@ class MainActivity : AppCompatActivity(), OnSuccessListener<Any?>, OnFailureList
             .addDataType(DataType.AGGREGATE_DISTANCE_DELTA, FitnessOptions.ACCESS_READ)
 //            .addDataType(DataType.TYPE_HEART_RATE_BPM, FitnessOptions.ACCESS_READ)
 //            .addDataType(DataType.AGGREGATE_HEART_RATE_SUMMARY, FitnessOptions.ACCESS_READ)
+            .addDataType(DataType.TYPE_HEIGHT, FitnessOptions.ACCESS_READ)
+            .addDataType(DataType.AGGREGATE_HEIGHT_SUMMARY, FitnessOptions.ACCESS_READ)
+            .addDataType(DataType.TYPE_WEIGHT, FitnessOptions.ACCESS_READ)
+            .addDataType(DataType.AGGREGATE_WEIGHT_SUMMARY, FitnessOptions.ACCESS_READ)
             .build()
 
         val account: GoogleSignInAccount = getGoogleAccount()
 
         if (!GoogleSignIn.hasPermissions(account, fitnessOptions)) {
-            Log.d("zzz", "Permissions")
             GoogleSignIn.requestPermissions(
                 this@MainActivity,
                 GOOGLE_FIT_PERMISSIONS_REQUEST_CODE,
@@ -101,9 +102,8 @@ class MainActivity : AppCompatActivity(), OnSuccessListener<Any?>, OnFailureList
         }
     }
 
-    private fun getGoogleAccount(): GoogleSignInAccount = GoogleSignIn.getAccountForExtension(this@MainActivity, fitnessOptions)
-
-
+    private fun getGoogleAccount(): GoogleSignInAccount =
+        GoogleSignIn.getAccountForExtension(this@MainActivity, fitnessOptions)
 
 
     override fun onRequestPermissionsResult(
@@ -112,10 +112,10 @@ class MainActivity : AppCompatActivity(), OnSuccessListener<Any?>, OnFailureList
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if(requestCode == MY_PERMISSIONS_REQUEST_ACTIVITY_RECOGNITION){
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED){
+        if (requestCode == MY_PERMISSIONS_REQUEST_ACTIVITY_RECOGNITION) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 checkGoogleFitPermission()
-            }else{
+            } else {
                 Toast.makeText(this, "Permission Denied", Toast.LENGTH_SHORT).show()
             }
         }
@@ -128,32 +128,74 @@ class MainActivity : AppCompatActivity(), OnSuccessListener<Any?>, OnFailureList
         }
     }
 
-    private fun requestForHistory(){
-        Log.d("zzz", "click")
+    private fun requestForHistory() {
         val cal = Calendar.getInstance()
         cal.time = Date()
+
         val endTime = cal.timeInMillis
 
         cal[Calendar.HOUR_OF_DAY] = 0 //so it get all day and not the current hour
-
         cal[Calendar.MINUTE] = 0 //so it get all day and not the current minute
-
         cal[Calendar.SECOND] = 0 //so it get all day and not the current second
 
         val startTime = cal.timeInMillis
 
+        getCaloriesAndDistance(startTime, endTime)
+//
+        getDailySteps()
+
+        getHeightAndWeight(startTime, endTime)
+
+
+    }
+
+    private fun getHeightAndWeight(startTime: Long, endTime: Long) {
+        val readRequestBody: DataReadRequest = DataReadRequest.Builder()
+            .read(DataType.TYPE_HEIGHT)
+//            .read(DataType.TYPE_WEIGHT)
+            .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+            .setLimit(1)
+            .build()
+
+
+        Fitness.getHistoryClient(this@MainActivity, getGoogleAccount())
+            .readData(readRequestBody)
+            .addOnSuccessListener { response ->
+//                onSuccess(response)
+                if (response is DataReadResponse) {
+                    if (response.buckets != null && response.buckets.isNotEmpty()) {
+                        Log.d("qqq", "if")
+                        for (bucket in response.buckets) {
+//                            val caloriesDataSet = bucket.getDataSet(DataType.TYPE_CALORIES_EXPENDED)
+//                            getDataFromDataReadResponse(caloriesDataSet!!)
+//                            val distanceDataSet = bucket.getDataSet(DataType.TYPE_DISTANCE_DELTA)
+//                            getDataFromDataReadResponse(distanceDataSet!!)
+                        }
+
+                    } else if (response.dataSets != null && response.dataSets.isNotEmpty()) {
+                        Log.d("qqq", "else" + response.dataSets.size.toString())
+                        for (dataSet in response.dataSets){
+//                            getDataFromDataReadResponse(dataSet)
+                            Log.d("qqq", dataSet.dataPoints.size.toString())
+//                            dataSet.
+                        }
+
+                    }
+                }
+            }
+            .addOnFailureListener { e -> Log.i("zzz0", e.toString()) }
+
+    }
+
+
+    private fun getCaloriesAndDistance(startTime: Long, endTime: Long) {
         val readRequest: DataReadRequest = DataReadRequest.Builder()
-            .aggregate(DataType.TYPE_STEP_COUNT_DELTA)
-            .aggregate(DataType.AGGREGATE_STEP_COUNT_DELTA)
+//            .aggregate(DataType.TYPE_STEP_COUNT_DELTA)
+//            .aggregate(DataType.AGGREGATE_STEP_COUNT_DELTA)
             .aggregate(DataType.TYPE_CALORIES_EXPENDED)
             .aggregate(DataType.AGGREGATE_CALORIES_EXPENDED)
             .aggregate(DataType.TYPE_DISTANCE_DELTA)
             .aggregate(DataType.AGGREGATE_DISTANCE_DELTA)
-//            .read(DataType.TYPE_HEART_RATE_BPM)
-//            .aggregate(DataType.TYPE_HEART_RATE_BPM, DataType.AGGREGATE_HEART_RATE_SUMMARY)
-//            .aggregate(DataType.AGGREGATE_HEART_RATE_SUMMARY)
-//            .aggregate(DataType.TYPE_HEIGHT)
-//            .aggregate(DataType.TYPE_WEIGHT)
             .bucketByTime(1, TimeUnit.DAYS)
             .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
             .build()
@@ -163,36 +205,40 @@ class MainActivity : AppCompatActivity(), OnSuccessListener<Any?>, OnFailureList
             .addOnSuccessListener(this)
     }
 
-    override fun onSuccess(o: Any?) {
-        if (o is DataSet){
-            val dataSet = o as DataSet
-            if (dataSet!= null){
-                getDataFromDataSet(dataSet)
+    private fun getDailySteps() {
+        Fitness.getHistoryClient(this@MainActivity, getGoogleAccount())
+            .readDailyTotal(DataType.TYPE_STEP_COUNT_DELTA)
+            .addOnSuccessListener { response ->
+                val total = when {
+                    response.isEmpty -> 0
+                    else -> response.dataPoints.first().getValue(Field.FIELD_STEPS).asInt()
+                }
+                fitnessDataResponseModel.steps = total
             }
-        }else if (o is DataReadResponse){
-            fitnessDataResponseModel.steps = 0f
+            .addOnFailureListener { e -> Log.i("zzz0", e.toString()) }
+    }
+
+    override fun onSuccess(o: Any?) {
+        if (o is DataSet) {
+            if (o != null) {
+                getDataFromDataSet(o)
+            }
+        } else if (o is DataReadResponse) {
             fitnessDataResponseModel.calories = 0f
             fitnessDataResponseModel.distance = 0f
-            fitnessDataResponseModel.heartRate = 0
-            val dataReadResponse = o as DataReadResponse
-            if (dataReadResponse.buckets != null && dataReadResponse.buckets.isNotEmpty()){
-                val bucketList = dataReadResponse.buckets
-                if (bucketList!= null && bucketList.isNotEmpty()){
-                    for (bucket in bucketList){
-                        val stepsDataSet = bucket.getDataSet(DataType.TYPE_STEP_COUNT_DELTA)
-                        getDataFromDataReadResponse(stepsDataSet!!)
-                        val caloriesDataSet = bucket.getDataSet(DataType.TYPE_CALORIES_EXPENDED)
-                        getDataFromDataReadResponse(caloriesDataSet!!)
-                        val distanceDataSet = bucket.getDataSet(DataType.TYPE_DISTANCE_DELTA)
-                        getDataFromDataReadResponse(distanceDataSet!!)
-//                        val heartRateDataSet = bucket.getDataSet(DataType.TYPE_HEART_RATE_BPM)
-//                        getDataFromDataReadResponse(heartRateDataSet!!)
-//                        val heightDataSet = bucket.getDataSet(DataType.TYPE_HEIGHT)
-//                        getDataFromDataReadResponse(heightDataSet!!)
-//                        val weightDataSet = bucket.getDataSet(DataType.TYPE_WEIGHT)
-//                        getDataFromDataReadResponse(weightDataSet!!)
-                    }
+            if (o.buckets != null && o.buckets.isNotEmpty()) {
+                for (bucket in o.buckets) {
+                    val caloriesDataSet = bucket.getDataSet(DataType.TYPE_CALORIES_EXPENDED)
+                    getDataFromDataReadResponse(caloriesDataSet!!)
+                    val distanceDataSet = bucket.getDataSet(DataType.TYPE_DISTANCE_DELTA)
+                    getDataFromDataReadResponse(distanceDataSet!!)
                 }
+
+            } else if (o.dataSets != null && o.dataSets.isNotEmpty()) {
+                for (dataSet in o.dataSets){
+                    getDataFromDataReadResponse(dataSet)
+                }
+
             }
         }
 
@@ -201,14 +247,14 @@ class MainActivity : AppCompatActivity(), OnSuccessListener<Any?>, OnFailureList
     private fun getDataFromDataSet(dataSet: DataSet) {
         val dataPoints = dataSet.dataPoints
         for (dataPoint in dataPoints) {
-            Log.d("zzz", " data manual : " + dataPoint.originalDataSource.streamName)
+            Log.d("zzz1", " data manual : " + dataPoint.originalDataSource.streamName)
             for (field in dataPoint.dataType.fields) {
+                Log.d("zzz1", "field $field")
                 val value = dataPoint.getValue(field).toString().toFloat()
-                Log.d("zzz", " data1 : $value")
+                Log.d("zzz1", " data1 : $value")
                 when (field.name) {
                     Field.FIELD_STEPS.name -> {
-                        fitnessDataResponseModel.steps =
-                            DecimalFormat("#.##").format(value.toDouble()).toFloat()
+                        fitnessDataResponseModel.steps = value.toInt()
                     }
                     Field.FIELD_CALORIES.name -> {
                         fitnessDataResponseModel.calories =
@@ -218,18 +264,6 @@ class MainActivity : AppCompatActivity(), OnSuccessListener<Any?>, OnFailureList
                         fitnessDataResponseModel.distance =
                             DecimalFormat("#.##").format(value.toDouble()).toFloat()
                     }
-//                    Field.FIELD_BPM.name -> {
-//                        Log.d("zzz bpm", "bpm")
-//                        fitnessDataResponseModel.heartRate = value.toInt()
-//                    }
-//                    Field.FIELD_HEIGHT.name -> {
-//                        fitnessDataResponseModel.height =
-//                            DecimalFormat("#.##").format(value.toDouble()).toFloat()
-//                    }
-//                    Field.FIELD_WEIGHT.name -> {
-//                        fitnessDataResponseModel.weight =
-//                            DecimalFormat("#.##").format(value.toDouble()).toFloat()
-//                    }
                 }
             }
         }
@@ -241,47 +275,36 @@ class MainActivity : AppCompatActivity(), OnSuccessListener<Any?>, OnFailureList
         val dataPoints = dataSet.dataPoints
         for (dataPoint in dataPoints) {
             for (field in dataPoint.dataType.fields) {
+                Log.d("zzz field", field.name)
                 val value = dataPoint.getValue(field).toString().toFloat()
-                Log.d("zzz", " data2 : $value")
                 when (field.name) {
                     Field.FIELD_STEPS.name -> {
-                        fitnessDataResponseModel.steps =
-                            DecimalFormat("#.##").format(value + fitnessDataResponseModel.steps!!)
-                                .toFloat()
+                        fitnessDataResponseModel.steps = value.toInt()
                     }
                     Field.FIELD_CALORIES.name -> {
-                        fitnessDataResponseModel.calories =
-                            DecimalFormat("#.##").format(value + fitnessDataResponseModel.calories!!)
-                                .toFloat()
+                        fitnessDataResponseModel.calories = DecimalFormat("#.##").format(value).toFloat()
                     }
                     Field.FIELD_DISTANCE.name -> {
-                        fitnessDataResponseModel.distance =
-                            DecimalFormat("#.##").format(value + fitnessDataResponseModel.distance!!)
-                                .toFloat()
+                        fitnessDataResponseModel.distance = DecimalFormat("#.##").format(value).toFloat()
                     }
-//                    Field.FIELD_BPM.name -> {
-//                        Log.d("zzz bpm", "bpm")
-//                        fitnessDataResponseModel.heartRate = value.toInt()
-//                    }
-//                    Field.FIELD_HEIGHT.name -> {
-//                        fitnessDataResponseModel.height =
-//                            DecimalFormat("#.##").format(value + fitnessDataResponseModel.height!!)
-//                                .toFloat()
-//                    }
-//                    Field.FIELD_WEIGHT.name -> {
-//                        fitnessDataResponseModel.weight =
-//                            DecimalFormat("#.##").format(value + fitnessDataResponseModel.weight!!)
-//                                .toFloat()
-//                    }
+
+                    Field.FIELD_HEIGHT.name -> {
+                        Log.d("zzz height", value.toString())
+                        fitnessDataResponseModel.height = DecimalFormat("#.##").format(value).toFloat()
+                    }
+                    Field.FIELD_WEIGHT.name -> {
+                        Log.d("zzz weight", value.toString())
+                        fitnessDataResponseModel.weight = DecimalFormat("#.##").format(value).toFloat()
+                    }
                 }
             }
         }
         Log.d("zzz fitness data2", fitnessDataResponseModel.toString())
-//        binding.setFitnessData(fitnessDataResponseModel)
+
     }
 
-    override fun onFailure(p0: Exception) {
-        Log.d("zzz", p0.message.toString())
+    override fun onFailure(e: Exception) {
+        Log.d("zzz", e.toString())
     }
 
 }
